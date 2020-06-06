@@ -185,6 +185,11 @@ contract PoolDeposits {
         proposalAmount = amount;
     }
 
+    // Will error if not enough credit from user
+    function usersVotingCredit(address user) external view returns (uint256) {
+        return depositedDai[user].sub(daoMembershipMinimum);
+    }
+
     /// @dev Internal function completing the actual deposit to Aave and crediting users account
     /// @param amount amount being deosited into pool
     function _depositFunds(uint256 amount) internal {

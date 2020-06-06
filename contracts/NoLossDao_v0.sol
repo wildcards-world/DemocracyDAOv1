@@ -33,7 +33,7 @@ contract NoLossDao_v0 is Initializable {
     mapping(address => uint256) public iterationJoined; // Which iteration did user join DAO
     mapping(uint256 => mapping(address => bool)) public userVotedThisIteration; // iteration -> user -> has voted?
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public votesPerProposalForUser; // iteration -> user -> chosen project -> votes
-    mapping(address => uint256) public usersVoteCredit;
+    mapping(uint256 => mapping(address => uint256)) public usersVoteCredit; // iteration -> address -> credit
 
     //////// DAO / VOTE specific //////////
     mapping(uint256 => mapping(uint256 => uint256)) public proposalVotes; /// iteration -> proposalId -> num votes
@@ -139,6 +139,17 @@ contract NoLossDao_v0 is Initializable {
         );
         _;
     }
+
+    // // Will happen in a new iteration if the user is still staked, and its their first vote.
+    // modifier resetUsersVotingCreditIfFirstVoteThisIteration(
+    //     address givenAddress
+    // ) {
+    //     if (!userVotedThisIteration[proposalIteration][givenAddress]) {
+    //         usersVoteCredit[proposalIteration][givenAddress] = depositContract
+    //             .usersVotingCredit(givenAddress);
+    //     }
+    //     _;
+    // }
 
     modifier userHasNoActiveProposal(address givenAddress) {
         require(
@@ -273,7 +284,6 @@ contract NoLossDao_v0 is Initializable {
         userHasNoProposal(userAddress) // Checks they are not a benefactor
         returns (bool)
     {
-        usersVoteCredit[userAddress] = amount; // rather take into account the amount minus the hurdle
         iterationJoined[userAddress] = proposalIteration;
         return true;
     }
@@ -336,6 +346,15 @@ contract NoLossDao_v0 is Initializable {
     /////// DAO voting functionality  //////////////////////
     ////////////////////////////////////////////////////////
 
+    function _resetUsersVotingCreditIfFirstVoteThisIteration(
+        address givenAddress
+    ) internal {
+        if (!userVotedThisIteration[proposalIteration][givenAddress]) {
+            usersVoteCredit[proposalIteration][givenAddress] = depositContract
+                .usersVotingCredit(givenAddress);
+        }
+    }
+
     /// @dev Allows user to delegate their full voting power to another user
     /// @param delegatedAddress the address to which you are delegating your voting rights
     function delegateVoting(address delegatedAddress)
@@ -357,7 +376,6 @@ contract NoLossDao_v0 is Initializable {
     )
         external
         proposalActive(proposalIdToVoteFor)
-        //noVoteYet(msg.sender)
         noVoteYetOnThisProposal(msg.sender, proposalIdToVoteFor)
         userStaked(msg.sender)
         userHasNoActiveProposal(msg.sender)
@@ -386,7 +404,6 @@ contract NoLossDao_v0 is Initializable {
         external
         proposalActive(proposalIdToVoteFor)
         proxyRight(delegatedFrom)
-        //noVoteYet(delegatedFrom)
         noVoteYetOnThisProposal(delegatedFrom, proposalIdToVoteFor)
         userStaked(delegatedFrom)
         userHasNoActiveProposal(delegatedFrom)
@@ -413,9 +430,10 @@ contract NoLossDao_v0 is Initializable {
         uint256 amount,
         uint256 sqrt
     ) internal {
-        //usersNominatedProject[proposalIteration][voteAddress] = proposalIdToVoteFor; // change this line
-        usersVoteCredit[voteAddress] = usersVoteCredit[voteAddress].sub(amount); // SafeMath enforces this.
+        _resetUsersVotingCreditIfFirstVoteThisIteration(voteAddress);
         userVotedThisIteration[proposalIteration][voteAddress] = true;
+        usersVoteCredit[proposalIteration][voteAddress] = usersVoteCredit[proposalIteration][voteAddress]
+            .sub(amount); // SafeMath enforces this.
         votesPerProposalForUser[proposalIteration][voteAddress][proposalIdToVoteFor] = sqrt;
 
         // Add the quadratic vote
