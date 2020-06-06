@@ -5,18 +5,18 @@ const {
   expectEvent,
   balance,
   time,
-} = require('@openzeppelin/test-helpers');
+} = require("@openzeppelin/test-helpers");
 
-const PoolDeposits = artifacts.require('PoolDeposits');
-const NoLossDao = artifacts.require('NoLossDao_v0');
-const AaveLendingPool = artifacts.require('AaveLendingPool');
+const PoolDeposits = artifacts.require("PoolDeposits");
+const NoLossDao = artifacts.require("NoLossDao_v0");
+const AaveLendingPool = artifacts.require("AaveLendingPool");
 const LendingPoolAddressProvider = artifacts.require(
-  'LendingPoolAddressesProvider'
+  "LendingPoolAddressesProvider"
 );
-const ERC20token = artifacts.require('MockERC20');
-const ADai = artifacts.require('ADai');
+const ERC20token = artifacts.require("MockERC20");
+const ADai = artifacts.require("ADai");
 
-contract('PoolDeposits', accounts => {
+contract("PoolDeposits", (accounts) => {
   let aaveLendingPool;
   let lendingPoolAddressProvider;
   let poolDeposits;
@@ -24,10 +24,11 @@ contract('PoolDeposits', accounts => {
   let dai;
   let aDai;
 
-  const applicationAmount = '5000000';
+  const applicationAmount = "5000000";
+  const _daoMembershipMinimum = "10000000";
 
   beforeEach(async () => {
-    dai = await ERC20token.new('AveTest', 'AT', 18, accounts[0], {
+    dai = await ERC20token.new("AveTest", "AT", 18, accounts[0], {
       from: accounts[0],
     });
     aDai = await ADai.new(dai.address, {
@@ -51,16 +52,17 @@ contract('PoolDeposits', accounts => {
       lendingPoolAddressProvider.address,
       noLossDao.address,
       applicationAmount,
+      _daoMembershipMinimum,
       { from: accounts[0] }
     );
 
-    await noLossDao.initialize(poolDeposits.address, '1800', {
+    await noLossDao.initialize(poolDeposits.address, "1800", {
       from: accounts[0],
     });
   });
 
-  it('poolDeposits:userJoin. User can join', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. User can join", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -71,7 +73,7 @@ contract('PoolDeposits', accounts => {
     const logs = await poolDeposits.deposit(mintAmount, {
       from: accounts[1],
     });
-    expectEvent(logs, 'DepositAdded', {
+    expectEvent(logs, "DepositAdded", {
       user: accounts[1],
       amount: mintAmount,
     });
@@ -83,44 +85,44 @@ contract('PoolDeposits', accounts => {
     assert.equal(mintAmount, deposit.toString());
   });
 
-  it('poolDeposits:userJoin. User cannot join once already in', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. User cannot join once already in", async () => {
+    let mintAmount = "60000000000";
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[1],
     });
 
-    await poolDeposits.deposit('30000000000', { from: accounts[1] });
+    await poolDeposits.deposit("30000000000", { from: accounts[1] });
     await expectRevert(
-      poolDeposits.deposit('30000000000', { from: accounts[1] }),
-      'Person is already a user'
+      poolDeposits.deposit("30000000000", { from: accounts[1] }),
+      "Person is already a user"
     ); // double deposit not allowed
   });
 
-  it('poolDeposits:userJoin. Deposit - should revert if no deposit approved', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. Deposit - should revert if no deposit approved", async () => {
+    let mintAmount = "60000000000";
     await dai.mint(accounts[1], mintAmount);
 
     await expectRevert(
       poolDeposits.deposit(mintAmount, { from: accounts[1] }),
-      'amount not available'
+      "amount not available"
     );
   });
 
-  it('poolDeposits:userJoin. Deposit - should revert if user does not have enough DAi', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. Deposit - should revert if user does not have enough DAi", async () => {
+    let mintAmount = "60000000000";
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[1],
     });
 
     await expectRevert(
       poolDeposits.deposit(mintAmount, { from: accounts[1] }),
-      'User does not have enough DAI'
+      "User does not have enough DAI"
     );
   });
 
-  it('poolDeposits:userJoin. User join iteration correctly displayed', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. User join iteration correctly displayed", async () => {
+    let mintAmount = "60000000000";
     // Join in iteration 1
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -143,12 +145,12 @@ contract('PoolDeposits', accounts => {
     let account2join = await noLossDao.iterationJoined.call(accounts[2]);
 
     // User has joined the pool
-    assert.equal(account1join.toString(), '0');
-    assert.equal(account2join.toString(), '1');
+    assert.equal(account1join.toString(), "0");
+    assert.equal(account2join.toString(), "1");
   });
 
-  it('poolDeposits:userJoin. Correctly display total DAi deposited after multiple people join', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. Correctly display total DAi deposited after multiple people join", async () => {
+    let mintAmount = "60000000000";
     // first person
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -172,7 +174,7 @@ contract('PoolDeposits', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[4],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[4],
     });
 
@@ -181,8 +183,8 @@ contract('PoolDeposits', accounts => {
     assert.equal(daiDeposited.toString(), totalExpected.toString());
   });
 
-  it('poolDeposits:userJoin. If no vote in iteration application does not break', async () => {
-    let mintAmount = '60000000000';
+  it("poolDeposits:userJoin. If no vote in iteration application does not break", async () => {
+    let mintAmount = "60000000000";
     // Join in iteration 0
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -217,9 +219,9 @@ contract('PoolDeposits', accounts => {
     let account3join = await noLossDao.iterationJoined.call(accounts[3]);
     // User has joined the pool
 
-    assert.equal(account1join.toString(), '0');
-    assert.equal(account2join.toString(), '1');
-    assert.equal(account3join.toString(), '2');
+    assert.equal(account1join.toString(), "0");
+    assert.equal(account2join.toString(), "1");
+    assert.equal(account3join.toString(), "2");
   });
 
   // Add tests to check if users can leave and that they get correct amount....

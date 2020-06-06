@@ -5,18 +5,18 @@ const {
   expectEvent,
   balance,
   time,
-} = require('@openzeppelin/test-helpers');
+} = require("@openzeppelin/test-helpers");
 
-const PoolDeposits = artifacts.require('PoolDeposits');
-const NoLossDao = artifacts.require('NoLossDao_v0');
-const AaveLendingPool = artifacts.require('AaveLendingPool');
+const PoolDeposits = artifacts.require("PoolDeposits");
+const NoLossDao = artifacts.require("NoLossDao_v0");
+const AaveLendingPool = artifacts.require("AaveLendingPool");
 const LendingPoolAddressProvider = artifacts.require(
-  'LendingPoolAddressesProvider'
+  "LendingPoolAddressesProvider"
 );
-const ERC20token = artifacts.require('MockERC20');
-const ADai = artifacts.require('ADai');
+const ERC20token = artifacts.require("MockERC20");
+const ADai = artifacts.require("ADai");
 
-contract('PoolDeposits', accounts => {
+contract("PoolDeposits", (accounts) => {
   let aaveLendingPool;
   let lendingPoolAddressProvider;
   let poolDeposits;
@@ -24,10 +24,11 @@ contract('PoolDeposits', accounts => {
   let dai;
   let aDai;
 
-  const applicationAmount = '5000000';
+  const applicationAmount = "5000000";
+  const _daoMembershipMinimum = "10000000000";
 
   beforeEach(async () => {
-    dai = await ERC20token.new('AveTest', 'AT', 18, accounts[0], {
+    dai = await ERC20token.new("AveTest", "AT", 18, accounts[0], {
       from: accounts[0],
     });
     aDai = await ADai.new(dai.address, {
@@ -51,17 +52,18 @@ contract('PoolDeposits', accounts => {
       lendingPoolAddressProvider.address,
       noLossDao.address,
       applicationAmount,
+      _daoMembershipMinimum,
       { from: accounts[0] }
     );
 
-    await noLossDao.initialize(poolDeposits.address, '1800', {
+    await noLossDao.initialize(poolDeposits.address, "1800", {
       from: accounts[0],
     });
   });
 
-  it('poolDeposits:emergency. Emergency can be declared', async () => {
-    let mintAmount1 = '100000000000000000000000';
-    let mintAmount2 = '100000000000000000000001';
+  it("poolDeposits:emergency. Emergency can be declared", async () => {
+    let mintAmount1 = "100000000000000000000000";
+    let mintAmount2 = "100000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -79,17 +81,17 @@ contract('PoolDeposits', accounts => {
 
     await expectRevert(
       poolDeposits.voteEmergency({ from: accounts[2] }),
-      'Need to have joined for 100days to vote an emergency'
+      "Need to have joined for 100days to vote an emergency"
     );
 
     await expectRevert(
       poolDeposits.declareStateOfEmergency({ from: accounts[2] }),
-      '50% of total pool needs to have voted for emergency state'
+      "50% of total pool needs to have voted for emergency state"
     );
 
     await expectRevert(
       poolDeposits.emergencyWithdraw({ from: accounts[2] }),
-      'State of emergency not declared'
+      "State of emergency not declared"
     );
 
     await time.increase(time.duration.days(2));
@@ -104,7 +106,7 @@ contract('PoolDeposits', accounts => {
     let emergencyVoteTotal1 = await poolDeposits.emergencyVoteAmount.call();
     let totalDeposit = await poolDeposits.totalDepositedDai.call();
 
-    expectEvent(logs, 'EmergencyStateReached', {
+    expectEvent(logs, "EmergencyStateReached", {
       user: accounts[2],
       timeStamp: created_at.toString(),
       totalDaiInContract: totalDeposit,
@@ -115,9 +117,9 @@ contract('PoolDeposits', accounts => {
     await poolDeposits.emergencyWithdraw({ from: accounts[1] });
   });
 
-  it('poolDeposits:emergency. Cannot deposit or create proposal once emergency declared', async () => {
-    let mintAmount1 = '100000000000000000000000';
-    let mintAmount2 = '100000000000000000000001';
+  it("poolDeposits:emergency. Cannot deposit or create proposal once emergency declared", async () => {
+    let mintAmount1 = "100000000000000000000000";
+    let mintAmount2 = "100000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -134,7 +136,7 @@ contract('PoolDeposits', accounts => {
     await time.increase(time.duration.days(101));
 
     const logs = await poolDeposits.voteEmergency({ from: accounts[2] });
-    expectEvent(logs, 'EmergencyVote', {
+    expectEvent(logs, "EmergencyVote", {
       user: accounts[2],
       emergencyVoteAmount: mintAmount2,
     });
@@ -147,21 +149,21 @@ contract('PoolDeposits', accounts => {
     });
     await expectRevert(
       poolDeposits.deposit(mintAmount2, { from: accounts[3] }),
-      'State of emergency declared'
+      "State of emergency declared"
     );
 
     await expectRevert(
-      poolDeposits.createProposal('some hash', { from: accounts[3] }),
-      'State of emergency declared'
+      poolDeposits.createProposal("some hash", { from: accounts[3] }),
+      "State of emergency declared"
     );
 
     await poolDeposits.emergencyWithdraw({ from: accounts[2] });
     await poolDeposits.emergencyWithdraw({ from: accounts[1] });
   });
 
-  it('poolDeposits:emergency. Cannot declare emergency without majority', async () => {
-    let mintAmount1 = '100000000000000000000000';
-    let mintAmount2 = '100000000000000000000001';
+  it("poolDeposits:emergency. Cannot declare emergency without majority", async () => {
+    let mintAmount1 = "100000000000000000000000";
+    let mintAmount2 = "100000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -180,12 +182,12 @@ contract('PoolDeposits', accounts => {
     await poolDeposits.voteEmergency({ from: accounts[1] });
     await expectRevert(
       poolDeposits.declareStateOfEmergency({ from: accounts[1] }),
-      '50% of total pool needs to have voted for emergency state'
+      "50% of total pool needs to have voted for emergency state"
     );
 
     await expectRevert(
       poolDeposits.emergencyWithdraw({ from: accounts[1] }),
-      'State of emergency not declared'
+      "State of emergency not declared"
     );
 
     await poolDeposits.voteEmergency({ from: accounts[2] });
@@ -195,14 +197,14 @@ contract('PoolDeposits', accounts => {
     const logs = await poolDeposits.emergencyWithdraw({
       from: accounts[2],
     });
-    expectEvent(logs, 'EmergencyWithdrawl', {
+    expectEvent(logs, "EmergencyWithdrawl", {
       user: accounts[2],
     });
   });
 
-  it('poolDeposits:emergency. Cannot declare emergency without 200 000DAI pool', async () => {
-    let mintAmount1 = '50000000000000000000000';
-    let mintAmount2 = '50000000000000000000001';
+  it("poolDeposits:emergency. Cannot declare emergency without 200 000DAI pool", async () => {
+    let mintAmount1 = "50000000000000000000000";
+    let mintAmount2 = "50000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -223,13 +225,13 @@ contract('PoolDeposits', accounts => {
 
     await expectRevert(
       poolDeposits.declareStateOfEmergency({ from: accounts[1] }),
-      '200 000DAI required in pool before emergency state can be declared'
+      "200 000DAI required in pool before emergency state can be declared"
     );
   });
 
-  it('poolDeposits:emergency. EmergencyVotes tally correct', async () => {
-    let mintAmount1 = '50000000000000000000000';
-    let mintAmount2 = '50000000000000000000001';
+  it("poolDeposits:emergency. EmergencyVotes tally correct", async () => {
+    let mintAmount1 = "50000000000000000000000";
+    let mintAmount2 = "50000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -257,7 +259,7 @@ contract('PoolDeposits', accounts => {
     );
 
     const logs = await poolDeposits.withdrawDeposit({ from: accounts[1] });
-    expectEvent(logs, 'RemoveEmergencyVote', {
+    expectEvent(logs, "RemoveEmergencyVote", {
       user: accounts[1],
       emergencyVoteAmount: mintAmount1,
     });
@@ -271,15 +273,15 @@ contract('PoolDeposits', accounts => {
     await poolDeposits.deposit(mintAmount1, { from: accounts[1] });
     await expectRevert(
       poolDeposits.voteEmergency({ from: accounts[1] }),
-      'Need to have joined for 100days to vote an emergency'
+      "Need to have joined for 100days to vote an emergency"
     );
     await time.increase(time.duration.days(101));
     await poolDeposits.voteEmergency({ from: accounts[1] });
   });
 
-  it('poolDeposits:emergency. Cannot emergency vote twice', async () => {
-    let mintAmount1 = '50000000000000000000000';
-    let mintAmount2 = '50000000000000000000001';
+  it("poolDeposits:emergency. Cannot emergency vote twice", async () => {
+    let mintAmount1 = "50000000000000000000000";
+    let mintAmount2 = "50000000000000000000001";
     // deposit
     await dai.mint(accounts[1], mintAmount1);
     await dai.approve(poolDeposits.address, mintAmount1, {
@@ -299,7 +301,7 @@ contract('PoolDeposits', accounts => {
 
     await expectRevert(
       poolDeposits.voteEmergency({ from: accounts[1] }),
-      'Already voted for emergency'
+      "Already voted for emergency"
     );
   });
 });

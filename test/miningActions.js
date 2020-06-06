@@ -5,18 +5,18 @@ const {
   expectEvent,
   balance,
   time,
-} = require('@openzeppelin/test-helpers');
+} = require("@openzeppelin/test-helpers");
 
-const PoolDeposits = artifacts.require('PoolDeposits');
-const NoLossDao = artifacts.require('NoLossDao_v0');
-const AaveLendingPool = artifacts.require('AaveLendingPool');
+const PoolDeposits = artifacts.require("PoolDeposits");
+const NoLossDao = artifacts.require("NoLossDao_v0");
+const AaveLendingPool = artifacts.require("AaveLendingPool");
 const LendingPoolAddressProvider = artifacts.require(
-  'LendingPoolAddressesProvider'
+  "LendingPoolAddressesProvider"
 );
-const ERC20token = artifacts.require('MockERC20');
-const ADai = artifacts.require('ADai');
+const ERC20token = artifacts.require("MockERC20");
+const ADai = artifacts.require("ADai");
 
-contract('noLossDao', accounts => {
+contract("noLossDao", (accounts) => {
   let aaveLendingPool;
   let lendingPoolAddressProvider;
   let poolDeposits;
@@ -24,10 +24,11 @@ contract('noLossDao', accounts => {
   let dai;
   let aDai;
 
-  const applicationAmount = '5000000';
+  const applicationAmount = "5000000";
+  const _daoMembershipMinimum = "10000000000";
 
   beforeEach(async () => {
-    dai = await ERC20token.new('AveTest', 'AT', 18, accounts[0], {
+    dai = await ERC20token.new("AveTest", "AT", 18, accounts[0], {
       from: accounts[0],
     });
     aDai = await ADai.new(dai.address, {
@@ -51,20 +52,21 @@ contract('noLossDao', accounts => {
       lendingPoolAddressProvider.address,
       noLossDao.address,
       applicationAmount,
+      _daoMembershipMinimum,
       { from: accounts[0] }
     );
 
-    await noLossDao.initialize(poolDeposits.address, '1800', {
+    await noLossDao.initialize(poolDeposits.address, "1800", {
       from: accounts[0],
     });
   });
 
-  it('NoLossDao:distributeFunds. Can only mine next iteration.', async () => {
-    let mintAmount = '60000000000';
+  it("NoLossDao:distributeFunds. Can only mine next iteration.", async () => {
+    let mintAmount = "60000000000";
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     // deposit
@@ -79,35 +81,35 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
     await time.increase(time.duration.seconds(1790)); // increment to iteration 1
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
     await time.increase(time.duration.seconds(12));
     await noLossDao.distributeFunds();
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     await time.increase(time.duration.seconds(500));
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     await time.increase(time.duration.seconds(1000));
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     await time.increase(time.duration.seconds(2000));
@@ -115,7 +117,7 @@ contract('noLossDao', accounts => {
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     await time.increase(time.duration.seconds(1801));
@@ -125,16 +127,16 @@ contract('noLossDao', accounts => {
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
   });
 
-  it('NoLossDao:distributeFunds. Can change interval time.', async () => {
-    let mintAmount = '60000000000';
+  it("NoLossDao:distributeFunds. Can change interval time.", async () => {
+    let mintAmount = "60000000000";
 
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     // deposit
@@ -149,21 +151,21 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
     await time.increase(time.duration.seconds(1780)); // increment to iteration 1
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
     await time.increase(time.duration.seconds(30));
     await noLossDao.distributeFunds();
 
     await expectRevert(
       noLossDao.changeVotingInterval(900, { from: accounts[1] }),
-      'Not admin'
+      "Not admin"
     );
     await noLossDao.changeVotingInterval(900, { from: accounts[0] });
 
@@ -174,7 +176,7 @@ contract('noLossDao', accounts => {
     await time.increase(time.duration.seconds(895)); // increment to iteration 1
     await expectRevert(
       noLossDao.distributeFunds(),
-      'iteration interval not ended'
+      "iteration interval not ended"
     );
 
     await time.increase(time.duration.seconds(10));
