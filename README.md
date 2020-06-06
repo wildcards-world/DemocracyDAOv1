@@ -1,60 +1,52 @@
-## Twitter part
+# DAO ranking DAO contracts
 
-cd twitter
-node Twitter.js
-This will run the twitter server
+This is for the https://gitcoin.co/issue/DemocracyEarth/DemocracyDAO/1/4386
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A Quadratic voting DAO used to rank other DAOs.
 
-## Firebase setup
+# SYSTEM RULES
 
-Install:
+### install
 
-```
-npm i -g firebase-tools
+```bash
+yarn
 ```
 
-Login:
+### Run the tests:
 
-```
-firebase login
-```
-
-## Functions
-
-Deploy a function:
-
-```
-firebase deploy --only function:someFunction
+```bash
+yarn run test
 ```
 
-## UI setup
+```bash
+yarn run coverage
+```
 
-Copy `.env.example` values to the `.env` file. Then retrieve the contract address and network ID from the `./contracts/.openzeppelin` folder and get firebase credentials from https://console.firebase.google.com . (for the internal team, there is an example in the keybase folder)
+### Clean Deploy
 
-## Available Scripts
+```bash
+yarn run clean
+```
 
-In the project directory, you can run:
+```bash
+yarn run deploy -- --network <network name you want to deploy to>
+```
 
-### `yarn start`
+If you want to save the deployment for the UI or the twitter bot:
 
-Runs the app in the development mode.<br />
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+```bash
+yarn run save-deployment
+```
 
-The page will reload if you make edits.<br />
-You will also see any lint errors in the console.
+### Upgrade
 
-### `yarn test`
+Prepair the upgrade by running instead of `yarn run clean`:
 
-Launches the test runner in the interactive watch mode.<br />
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+yarn run prepair-upgrade
+```
 
-### `yarn build`
+### License
 
-Builds the app for production to the `build` folder.<br />
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br />
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Code License:
+MIT
