@@ -26,18 +26,18 @@ contract NoLossDao_v0 is Initializable {
     mapping(uint256 => string) public proposalIdentifier;
     mapping(address => uint256) public benefactorsProposal; // benefactor -> proposal id
     mapping(uint256 => address) public proposalOwner; // proposal id -> benefactor (1:1 mapping)
-    enum ProposalState {DoesNotExist, Withdrawn, Active, Cooldown} // Add Cooldown state and pending state
+    enum ProposalState {DoesNotExist, Withdrawn, Active}
     mapping(uint256 => ProposalState) public state; // ProposalId to current state
 
     //////// User specific //////////
     mapping(address => uint256) public iterationJoined; // Which iteration did user join DAO
     mapping(uint256 => mapping(address => bool)) public userVotedThisIteration; // iteration -> user -> has voted?
+    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public hasUserVotedForProposalIteration; /// iteration -> userAddress -> proposalId -> bool
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public votesPerProposalForUser; // iteration -> user -> chosen project -> votes
     mapping(uint256 => mapping(address => uint256)) public usersVoteCredit; // iteration -> address -> credit
 
     //////// DAO / VOTE specific //////////
     mapping(uint256 => mapping(uint256 => uint256)) public proposalVotes; /// iteration -> proposalId -> num votes
-    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public hasUserVotedForProposalIteration; /// iteration -> userAddress -> proposalId -> bool
     mapping(uint256 => uint256) public topProject;
     mapping(address => address) public voteDelegations; // For vote proxy
 
@@ -88,7 +88,6 @@ contract NoLossDao_v0 is Initializable {
         address benefactor,
         uint256 iteration
     );
-    event ProposalCooldown(uint256 indexed proposalId, uint256 iteration);
     event ProposalWithdrawn(uint256 indexed proposalId, uint256 iteration);
 
     ////////////////////////////////////
@@ -139,17 +138,6 @@ contract NoLossDao_v0 is Initializable {
         );
         _;
     }
-
-    // // Will happen in a new iteration if the user is still staked, and its their first vote.
-    // modifier resetUsersVotingCreditIfFirstVoteThisIteration(
-    //     address givenAddress
-    // ) {
-    //     if (!userVotedThisIteration[proposalIteration][givenAddress]) {
-    //         usersVoteCredit[proposalIteration][givenAddress] = depositContract
-    //             .usersVotingCredit(givenAddress);
-    //     }
-    //     _;
-    // }
 
     modifier userHasNoActiveProposal(address givenAddress) {
         require(
@@ -223,9 +211,7 @@ contract NoLossDao_v0 is Initializable {
         votingInterval = _votingInterval;
         proposalDeadline = now.add(_votingInterval);
         interestReceivers.push(admin); // This will change to miner when iterationchanges
-        percentages.push(15); // 1.5% for miner
-        interestReceivers.push(admin);
-        percentages.push(135); // 13.5% for devlopers
+        percentages.push(50); // 5% for miner
 
         emit IterationChanged(0, msg.sender, now);
     }
@@ -433,7 +419,7 @@ contract NoLossDao_v0 is Initializable {
         _resetUsersVotingCreditIfFirstVoteThisIteration(voteAddress);
         userVotedThisIteration[proposalIteration][voteAddress] = true;
         usersVoteCredit[proposalIteration][voteAddress] = usersVoteCredit[proposalIteration][voteAddress]
-            .sub(amount); // SafeMath enforces this.
+            .sub(amount); // SafeMath enforces they can't vote more then the credit they have.
         votesPerProposalForUser[proposalIteration][voteAddress][proposalIdToVoteFor] = sqrt;
 
         // Add the quadratic vote
@@ -460,63 +446,21 @@ contract NoLossDao_v0 is Initializable {
     /////// Iteration changer / mining function  //////////////////////
     ///////////////////////////////////////////////////////////////////
 
-    // NB RESET users vote credit each iteration. Work on how this should work....
-
     /// @dev Anyone can call this every 2 weeks (more specifically every *iteration interval*) to receive a reward, and increment onto the next iteration of voting
     function distributeFunds() external iterationElapsed {
         interestReceivers[0] = msg.sender; // Set the miners address to receive a small reward
 
-        if (proposalIteration > 0) {
-            // distribute interest from previous week.
-            uint256 previousIterationTopProject = topProject[proposalIteration
-                .sub(1)];
-            if (previousIterationTopProject != 0) {
-                // Only if last winner is not withdrawn (i.e. st ill in cooldown) make it active again
-                if (
-                    state[previousIterationTopProject] == ProposalState.Cooldown
-                ) {
-                    state[previousIterationTopProject] = ProposalState.Active;
-                    emit ProposalActive(
-                        previousIterationTopProject,
-                        proposalOwner[previousIterationTopProject],
-                        proposalIteration
-                    );
-                }
-
-
-                    address previousWinner
-                 = proposalOwner[previousIterationTopProject]; // This cannot be null, since we check that there was a winner above.
-                depositContract.distributeInterest(
-                    interestReceivers,
-                    percentages,
-                    previousWinner,
-                    proposalIteration
-                );
-            }
-
-            uint256 iterationTopProject = topProject[proposalIteration];
-            if (iterationTopProject != 0) {
-                // TODO: Do some asserts here for safety...
-                if (state[iterationTopProject] != ProposalState.Withdrawn) {
-                    state[iterationTopProject] = ProposalState.Cooldown;
-                    emit ProposalCooldown(
-                        iterationTopProject,
-                        proposalIteration
-                    );
-                }
-                address winner = proposalOwner[iterationTopProject]; // This cannot be null, since we check that there was a winner above.
-                emit IterationWinner(
-                    proposalIteration,
-                    winner,
-                    iterationTopProject
-                );
-            }
-        }
+        // To incetivize voting and joining the DAO, like a simply poolTogether, you could win the DAO's interest...
+        depositContract.distributeInterest(
+            interestReceivers,
+            percentages,
+            msg.sender, // change this to a random voter [chainlink VRF]
+            proposalIteration
+        );
 
         proposalDeadline = now.add(votingInterval);
         proposalIteration = proposalIteration.add(1);
 
-        // send winning miner a little surprise [NFT]
         emit IterationChanged(proposalIteration, msg.sender, now);
     }
 }

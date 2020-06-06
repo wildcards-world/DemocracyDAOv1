@@ -136,7 +136,7 @@ contract PoolDeposits {
 
     modifier thresholdAmount(uint256 amount) {
         require(
-            amount >= daoMembershipMinimum,
+            amount > daoMembershipMinimum,
             "Minimum amount of 1000 DAI required to join pool"
         );
         _;
@@ -164,7 +164,8 @@ contract PoolDeposits {
         // mainnet 0x24a42fD28C976A61Df5D00D0599C34c4f90748c8
         address lendingPoolAddressProvider,
         address noLossDaoAddress,
-        uint256 _proposalAmount // Set the amount required to ensure quality DAOs.
+        uint256 _proposalAmount, // Set the amount required to ensure quality DAOs.
+        uint256 _daoMembershipMinimum // Set min threshold to join before voting credits build up. Protects against sybil but increases hurdle to membership // Protects against sybil but increases hurdle to membership
     ) public {
         daiContract = IERC20(daiAddress);
         provider = ILendingPoolAddressesProvider(lendingPoolAddressProvider);
@@ -173,7 +174,7 @@ contract PoolDeposits {
         admin = msg.sender;
         proposalAmount = _proposalAmount; // if we want this configurable put in other contract
         isEmergencyState = false;
-        daoMembershipMinimum = 10**21; // 1000 DAI
+        daoMembershipMinimum = _daoMembershipMinimum; // 1000 DAI [10 **21 as default] recommended
     }
 
     /// @dev allows the proposalAmount (amount proposal has to stake to enter the pool) to be configurable
