@@ -5,18 +5,18 @@ const {
   expectEvent,
   balance,
   time,
-} = require('@openzeppelin/test-helpers');
+} = require("@openzeppelin/test-helpers");
 
-const PoolDeposits = artifacts.require('PoolDeposits');
-const NoLossDao = artifacts.require('NoLossDao_v0');
-const AaveLendingPool = artifacts.require('AaveLendingPool');
+const PoolDeposits = artifacts.require("PoolDeposits");
+const NoLossDao = artifacts.require("NoLossDao_v0");
+const AaveLendingPool = artifacts.require("AaveLendingPool");
 const LendingPoolAddressProvider = artifacts.require(
-  'LendingPoolAddressesProvider'
+  "LendingPoolAddressesProvider"
 );
-const ERC20token = artifacts.require('MockERC20');
-const ADai = artifacts.require('ADai');
+const ERC20token = artifacts.require("MockERC20");
+const ADai = artifacts.require("ADai");
 
-contract('noLossDao', accounts => {
+contract("noLossDao", (accounts) => {
   let aaveLendingPool;
   let lendingPoolAddressProvider;
   let poolDeposits;
@@ -24,10 +24,11 @@ contract('noLossDao', accounts => {
   let dai;
   let aDai;
 
-  const applicationAmount = '5000000';
+  const applicationAmount = "5000000";
+  const _daoMembershipMinimum = "10000000000";
 
   beforeEach(async () => {
-    dai = await ERC20token.new('AveTest', 'AT', 18, accounts[0], {
+    dai = await ERC20token.new("AveTest", "AT", 18, accounts[0], {
       from: accounts[0],
     });
     aDai = await ADai.new(dai.address, {
@@ -51,16 +52,17 @@ contract('noLossDao', accounts => {
       lendingPoolAddressProvider.address,
       noLossDao.address,
       applicationAmount,
+      _daoMembershipMinimum,
       { from: accounts[0] }
     );
 
-    await noLossDao.initialize(poolDeposits.address, '1800', {
+    await noLossDao.initialize(poolDeposits.address, "1800", {
       from: accounts[0],
     });
   });
 
-  it('noLossDao:voteProxy. User can delegate vote and proxy can vote on behalf.', async () => {
-    let mintAmount = '60000000000';
+  it("noLossDao:voteProxy. User can delegate vote and proxy can vote on behalf.", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -73,7 +75,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
@@ -82,7 +84,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[9],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[9],
     });
 
@@ -94,40 +96,40 @@ contract('noLossDao', accounts => {
       from: accounts[1],
     });
 
-    expectEvent(delegate, 'VoteDelegated', {
+    expectEvent(delegate, "VoteDelegated", {
       user: accounts[1],
       delegatedTo: accounts[3],
     });
     let currentIteration = await noLossDao.proposalIteration.call();
     // Proxy can vote then user cannot
-    const voted = await noLossDao.voteProxy(1, accounts[1], {
+    const voted = await noLossDao.voteProxy(1, accounts[1], 100, 10, {
       from: accounts[3],
     });
-    expectEvent(voted, 'VotedViaProxy', {
+    expectEvent(voted, "VotedViaProxy", {
       proxy: accounts[3],
       user: accounts[1],
       iteration: currentIteration,
-      proposalId: '1',
+      proposalId: "1",
     });
 
     await expectRevert(
-      noLossDao.voteDirect(1, { from: accounts[1] }),
-      'User already voted this iteration'
+      noLossDao.voteDirect(1, 100, 10, { from: accounts[1] }),
+      "Already voted on this proposal"
     );
 
     await time.increase(time.duration.seconds(1801)); // increment to iteration 2
     await noLossDao.distributeFunds();
 
     // User can vote before proxy
-    await noLossDao.voteDirect(2, { from: accounts[1] });
+    await noLossDao.voteDirect(2, 100, 10, { from: accounts[1] });
     await expectRevert(
-      noLossDao.voteProxy(2, accounts[1], { from: accounts[3] }),
-      'User already voted this iteration'
+      noLossDao.voteProxy(2, accounts[1], 100, 10, { from: accounts[3] }),
+      "Already voted on this proposal"
     );
   });
 
-  it('noLossDao:voteProxy. Random can not proxy vote on anothers behalf.', async () => {
-    let mintAmount = '60000000000';
+  it("noLossDao:voteProxy. Random can not proxy vote on anothers behalf.", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -140,7 +142,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
@@ -149,16 +151,16 @@ contract('noLossDao', accounts => {
 
     // Proxy can vote then user cannot
     await expectRevert(
-      noLossDao.voteProxy(1, accounts[1], { from: accounts[3] }),
-      'User does not have proxy right'
+      noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[3] }),
+      "User does not have proxy right"
     );
   });
 
   //   //   Weird behaviour. This sometimes fails. Its not deterministic...
   //   //   setting proxy back to yourself -> await noLossDao.delegateVoting(accounts[1], { from: accounts[1] });
   // THink this was because I forgot an await infront of one function. Solved now hopefully
-  it('noLossDao:voteProxy. Proxy vote can be set back to only user.', async () => {
-    let mintAmount = '60000000000';
+  it("noLossDao:voteProxy. Proxy vote can be set back to only user.", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -171,7 +173,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
@@ -180,7 +182,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[9],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[9],
     });
 
@@ -188,7 +190,7 @@ contract('noLossDao', accounts => {
     await noLossDao.distributeFunds();
 
     await noLossDao.delegateVoting(accounts[3], { from: accounts[1] });
-    await noLossDao.voteProxy(1, accounts[1], { from: accounts[3] });
+    await noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[3] });
 
     // proxy can no longer vote on your behalf
     await noLossDao.delegateVoting(accounts[1], { from: accounts[1] });
@@ -197,27 +199,27 @@ contract('noLossDao', accounts => {
     await noLossDao.distributeFunds();
 
     await expectRevert(
-      noLossDao.voteProxy(2, accounts[1], { from: accounts[3] }),
-      'User does not have proxy right'
+      noLossDao.voteProxy(2, accounts[1], 100, 10, { from: accounts[3] }),
+      "User does not have proxy right"
     );
-    const voteDirectEvent = await noLossDao.voteDirect(2, {
+    const voteDirectEvent = await noLossDao.voteDirect(2, 100, 10, {
       from: accounts[1],
     });
     let currentIteration = await noLossDao.proposalIteration.call();
-    expectEvent(voteDirectEvent, 'VotedDirect', {
+    expectEvent(voteDirectEvent, "VotedDirect", {
       user: accounts[1],
       iteration: currentIteration,
-      proposalId: '2',
+      proposalId: "2",
     });
 
     await expectRevert(
-      noLossDao.voteProxy(2, accounts[1], { from: accounts[1] }),
-      'User already voted this iteration'
+      noLossDao.voteProxy(2, accounts[1], 100, 10, { from: accounts[1] }),
+      "Already voted on this proposal"
     );
   });
 
-  it('noLossDao:voteProxy. User can Proxy multiple times.', async () => {
-    let mintAmount = '60000000000';
+  it("noLossDao:voteProxy. User can Proxy multiple times.", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -230,7 +232,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[2],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[2],
     });
 
@@ -242,19 +244,19 @@ contract('noLossDao', accounts => {
     await noLossDao.delegateVoting(accounts[5], { from: accounts[1] });
 
     await expectRevert(
-      noLossDao.voteProxy(1, accounts[1], { from: accounts[3] }),
-      'User does not have proxy right'
+      noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[3] }),
+      "User does not have proxy right"
     );
 
     await expectRevert(
-      noLossDao.voteProxy(1, accounts[1], { from: accounts[4] }),
-      'User does not have proxy right'
+      noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[4] }),
+      "User does not have proxy right"
     );
-    noLossDao.voteProxy(1, accounts[1], { from: accounts[5] });
+    noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[5] });
   });
 
-  it('noLossDao:voteProxy. Users proxy each other', async () => {
-    let mintAmount = '60000000000';
+  it("noLossDao:voteProxy. Users proxy each other", async () => {
+    let mintAmount = "60000000000";
     // deposit
     await dai.mint(accounts[1], mintAmount);
     await dai.approve(poolDeposits.address, mintAmount, {
@@ -273,7 +275,7 @@ contract('noLossDao', accounts => {
     await dai.approve(poolDeposits.address, mintAmount, {
       from: accounts[3],
     });
-    await poolDeposits.createProposal('Some IPFS hash string', {
+    await poolDeposits.createProposal("Some IPFS hash string", {
       from: accounts[3],
     });
 
@@ -284,16 +286,16 @@ contract('noLossDao', accounts => {
     await time.increase(time.duration.seconds(1801)); // increment to iteration 1
     await noLossDao.distributeFunds();
 
-    noLossDao.voteProxy(1, accounts[1], { from: accounts[2] });
-    noLossDao.voteProxy(1, accounts[2], { from: accounts[1] });
+    noLossDao.voteProxy(1, accounts[1], 100, 10, { from: accounts[2] });
+    noLossDao.voteProxy(1, accounts[2], 100, 10, { from: accounts[1] });
     await expectRevert(
-      noLossDao.voteProxy(1, accounts[2], { from: accounts[1] }),
-      'User already voted this iteration'
+      noLossDao.voteProxy(1, accounts[2], 100, 10, { from: accounts[1] }),
+      "Already voted on this proposal"
     );
     // Cannot delegate to a benefactor
     await expectRevert(
       noLossDao.delegateVoting(accounts[3], { from: accounts[2] }),
-      'User has an active proposal'
+      "User has an active proposal"
     );
   });
 });
