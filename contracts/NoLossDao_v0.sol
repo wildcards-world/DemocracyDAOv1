@@ -264,7 +264,7 @@ contract NoLossDao_v0 is Initializable {
     /// @dev Checks whether user is eligible deposit and sets the proposal iteration joined, to the current iteration
     /// @param userAddress address of the user wanting to deposit
     /// @return boolean whether the above executes successfully
-    function noLossDeposit(address userAddress, uint256 amount)
+    function noLossDeposit(address userAddress)
         external
         depositContractOnly
         userHasNoProposal(userAddress) // Checks they are not a benefactor
@@ -417,6 +417,7 @@ contract NoLossDao_v0 is Initializable {
         uint256 sqrt
     ) internal {
         _resetUsersVotingCreditIfFirstVoteThisIteration(voteAddress);
+        hasUserVotedForProposalIteration[proposalIteration][voteAddress][proposalIdToVoteFor] = true;
         userVotedThisIteration[proposalIteration][voteAddress] = true;
         usersVoteCredit[proposalIteration][voteAddress] = usersVoteCredit[proposalIteration][voteAddress]
             .sub(amount); // SafeMath enforces they can't vote more then the credit they have.

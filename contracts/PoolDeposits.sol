@@ -229,7 +229,7 @@ contract PoolDeposits {
         stableState
     {
         _depositFunds(amount);
-        noLossDaoContract.noLossDeposit(msg.sender, amount);
+        noLossDaoContract.noLossDeposit(msg.sender);
         emit DepositAdded(msg.sender, amount);
     }
 
