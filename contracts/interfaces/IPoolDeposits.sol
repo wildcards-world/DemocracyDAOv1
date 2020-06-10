@@ -4,7 +4,11 @@ pragma solidity ^0.5.0;
 contract IPoolDeposits {
     mapping(address => uint256) public depositedDai;
 
-    function usersVotingCredit(address user) external view returns (uint256) {}
+    function usersVotingCreditAndVoteIncentiveState(address user)
+        external
+        view
+        returns (uint256, uint256)
+    {}
 
     function usersDeposit(address userAddress) external view returns (uint256);
 
@@ -12,10 +16,8 @@ contract IPoolDeposits {
 
     function redirectInterestStreamToWinner(address _winner) external;
 
-    function distributeInterest(
-        address[] calldata receivers,
-        uint256[] calldata percentages,
-        address winner,
-        uint256 iteration
-    ) external;
+    function interestAvailable() external view returns (uint256 amountToRedeem);
+
+    function payoutVotingIncentive(address voter, uint256 payoutAmount)
+        external;
 }

@@ -108,7 +108,7 @@ contract("noLossDao", (accounts) => {
       "User only eligible to vote next iteration"
     );
 
-    let usersTotalVoteCredit = await poolDeposits.usersVotingCredit.call(
+    const {totalVoiceCredits:usersTotalVoteCredit} = await poolDeposits.usersVotingCreditAndVoteIncentiveState.call(
       accounts[1]
     );
     assert.equal(
@@ -166,7 +166,8 @@ contract("noLossDao", (accounts) => {
       from: accounts[3],
     });
 
-    let usersTotalVoteCredit = await poolDeposits.usersVotingCredit.call(
+
+        const {totalVoiceCredits:usersTotalVoteCredit} = await poolDeposits.usersVotingCreditAndVoteIncentiveState.call(
       accounts[1]
     );
     await time.increase(time.duration.seconds(1801)); // increment to iteration 1
@@ -219,7 +220,7 @@ contract("noLossDao", (accounts) => {
       from: accounts[3],
     });
 
-    let usersTotalVoteCredit = await poolDeposits.usersVotingCredit.call(
+    const {totalVoiceCredits:usersTotalVoteCredit} = await poolDeposits.usersVotingCreditAndVoteIncentiveState.call(
       accounts[1]
     );
     await time.increase(time.duration.seconds(1801)); // increment to iteration 1

@@ -40,10 +40,12 @@ contract NoLossDao_v0 is Initializable {
     mapping(uint256 => mapping(uint256 => uint256)) public proposalVotes; /// iteration -> proposalId -> num votes
     mapping(uint256 => uint256) public topProject;
     mapping(address => address) public voteDelegations; // For vote proxy
+    mapping(uint256 => uint256) public totalUsersVotesInIteration;
+    mapping(uint256 => uint256) public totalIterationVotePayout;
+    mapping(address => bool) public usersWhiteListedToVote;
 
-    //////// Necessary to fund dev and miners //////////
-    address[] interestReceivers; // in v0, the interestReceivers is the address of the miner.
-    uint256[] percentages;
+    // As a safty mechanism a whitelist of members can be activated.
+    bool public isWhiteListActive;
 
     ///////// DEFI Contrcats ///////////
     IPoolDeposits public depositContract;
@@ -168,6 +170,22 @@ contract NoLossDao_v0 is Initializable {
         _;
     }
 
+    modifier isEligibleToVote(address user) {
+        _isEligibleToVote(user);
+        _;
+    }
+
+    // /**
+    //  * @notice Modifier to only allow updates by the VRFCoordinator contract
+    //  */
+    // modifier onlyVRFCoordinator {
+    //     require(
+    //         msg.sender == vrfCoordinator,
+    //         "Fulfillment only allowed by VRFCoordinator"
+    //     );
+    //     _;
+    // }
+
     // We reset the iteration back to zero when a user leaves. Means this modifier will no longer protect.
     // But, its okay because it cannot be exploited. When 0, the user will have zero deposit.
     // Therefore that modifier will always catch them in that case :)
@@ -209,9 +227,7 @@ contract NoLossDao_v0 is Initializable {
         depositContract = IPoolDeposits(depositContractAddress);
         admin = msg.sender;
         votingInterval = _votingInterval;
-        proposalDeadline = now.add(_votingInterval);
-        interestReceivers.push(admin); // This will change to miner when iterationchanges
-        percentages.push(50); // 5% for miner
+        proposalDeadline = now.add(_votingInterval); //NOTE: THIS should be shorter for the first no voting iteration
 
         emit IterationChanged(0, msg.sender, now);
     }
@@ -232,28 +248,39 @@ contract NoLossDao_v0 is Initializable {
         depositContract.changeProposalAmount(amount);
     }
 
-    /// @dev Changes the amount required to stake for new proposal
-    function setInterestReceivers(
-        address[] memory _interestReceivers,
-        uint256[] memory _percentages
-    ) public onlyAdmin {
-        require(
-            _interestReceivers.length == _percentages.length,
-            "Arrays should be equal length"
-        );
-        uint256 percentagesSum = 0;
-        for (uint256 i = 0; i < _percentages.length; i++) {
-            percentagesSum = percentagesSum.add(_percentages[i]);
-        }
-        require(percentagesSum < 1000, "Percentages total too high");
+    /// @dev Sets whitelist voting
+    /// @param _isWhiteListActive value to set it to.
+    function setWhiteListVotingOnly(bool _isWhiteListActive) public onlyAdmin {
+        isWhiteListActive = _isWhiteListActive;
+    }
 
-        interestReceivers = _interestReceivers;
-        percentages = _percentages;
-        emit InterestConfigChanged(
-            _interestReceivers,
-            _percentages,
-            proposalIteration
-        );
+    // NOTE: This function can be upgraded in future versions (or left out if sybil attack isn't a big issue)
+    //       In future versions more complicated membership process and requirements can be implemented. For v0 an admin function makes sense. - launch early and iterate ;)
+    function whiteListUsers(address[] memory usersToWhitelist)
+        public
+        onlyAdmin
+    {
+        for (uint8 i = 0; i < usersToWhitelist.length; ++i) {
+            usersWhiteListedToVote[usersToWhitelist[i]] = true;
+        }
+    }
+
+    function blackListUsers(address[] memory usersToBlacklist)
+        public
+        onlyAdmin
+    {
+        for (uint8 i = 0; i < usersToBlacklist.length; ++i) {
+            usersWhiteListedToVote[usersToBlacklist[i]] = false;
+        }
+    }
+
+    function _isEligibleToVote(address user) internal {
+        if (isWhiteListActive) {
+            require(
+                usersWhiteListedToVote[user],
+                "whitelist is active and user not on whitelist"
+            );
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -336,8 +363,39 @@ contract NoLossDao_v0 is Initializable {
         address givenAddress
     ) internal {
         if (!userVotedThisIteration[proposalIteration][givenAddress]) {
-            usersVoteCredit[proposalIteration][givenAddress] = depositContract
-                .usersVotingCredit(givenAddress);
+            uint256 usersVoteIncentiveStake;
+            (
+                usersVoteCredit[proposalIteration][givenAddress],
+                // NOTE: Users can only change their deposit through a complete withdrawl and new depsit
+                // This means this value will always be constant and set correctly again if the above case occurs
+                usersVoteIncentiveStake
+            ) = depositContract.usersVotingCreditAndVoteIncentiveState(
+                givenAddress
+            );
+
+            userVotedThisIteration[proposalIteration][givenAddress] = true;
+            // NOTE: no need for safemath here.
+            totalUsersVotesInIteration[proposalIteration] =
+                totalUsersVotesInIteration[proposalIteration] +
+                usersVoteIncentiveStake;
+
+            // add voice credit amount here for user.
+            // add same total amount for variable
+            // IF person voted last iteration, trigger payout\
+            // Since you can only vote on iteration 1 at earliest, proposalIteration - 1 should be safe
+            if (userVotedThisIteration[proposalIteration - 1][givenAddress]) {
+                // give them payout of interest earned during iteration that is proportional to the number of people who voted.
+
+
+                    uint256 amountPayedAsParticipationIncentive
+                 = totalIterationVotePayout[proposalIteration - 1]
+                    .mul(usersVoteIncentiveStake)
+                    .div(totalUsersVotesInIteration[proposalIteration - 1]);
+                depositContract.payoutVotingIncentive(
+                    givenAddress,
+                    amountPayedAsParticipationIncentive
+                );
+            }
         }
     }
 
@@ -367,6 +425,7 @@ contract NoLossDao_v0 is Initializable {
         userHasNoActiveProposal(msg.sender)
         joinedInTime(msg.sender)
         quadraticCorrect(amount, sqrt)
+        isEligibleToVote(msg.sender)
     {
         _vote(proposalIdToVoteFor, msg.sender, amount, sqrt);
         emit VotedDirect(
@@ -396,6 +455,7 @@ contract NoLossDao_v0 is Initializable {
         joinedInTime(delegatedFrom)
         quadraticCorrect(amount, sqrt)
     {
+        _isEligibleToVote(delegatedFrom);
         _vote(proposalIdToVoteFor, delegatedFrom, amount, sqrt);
         emit VotedViaProxy(
             msg.sender,
@@ -418,7 +478,6 @@ contract NoLossDao_v0 is Initializable {
     ) internal {
         _resetUsersVotingCreditIfFirstVoteThisIteration(voteAddress);
         hasUserVotedForProposalIteration[proposalIteration][voteAddress][proposalIdToVoteFor] = true;
-        userVotedThisIteration[proposalIteration][voteAddress] = true;
         usersVoteCredit[proposalIteration][voteAddress] = usersVoteCredit[proposalIteration][voteAddress]
             .sub(amount); // SafeMath enforces they can't vote more then the credit they have.
         votesPerProposalForUser[proposalIteration][voteAddress][proposalIdToVoteFor] = sqrt;
@@ -447,17 +506,65 @@ contract NoLossDao_v0 is Initializable {
     /////// Iteration changer / mining function  //////////////////////
     ///////////////////////////////////////////////////////////////////
 
+    //// NOTE: Code commented out below is an experimental idea to award one voter from the previous iteration all the interest earned (as an incentive to vote).
+    //         Ultimately we decided that it made sense to have a more "kickback" style distribution of interest to incentivise voting.
+    // /**
+    //  * @notice Requests randomness from a user-provided seed
+    //  * @dev The user-provided seed is hashed with the current blockhash as an additional precaution.
+    //  * @dev   1. In case of block re-orgs, the revealed answers will not be re-used again.
+    //  * @dev   2. In case of predictable user-provided seeds, the seed is mixed with the less predictable blockhash.
+    //  * @dev This is only an example implementation and not necessarily suitable for mainnet.
+    //  * @dev You must review your implementation details with extreme care.
+    //  */
+    // function chooseRandomVotingWinner(uint256 userProvidedSeed)
+    //     internal
+    //     returns (bytes32 requestId)
+    // {
+    //     require(
+    //         LINK.balanceOf(address(this)) > fee,
+    //         "Not enough LINK - fill contract with faucet"
+    //     );
+    //     uint256 seed = uint256(
+    //         keccak256(abi.encode(userProvidedSeed, blockhash(block.number)))
+    //     ); // Hash user seed and blockhash
+    //     bytes32 _requestId = requestRandomness(keyHash, fee, seed);
+    //     return _requestId;
+    // }
+
+    // /**
+    //  * @notice Callback function used by VRF Coordinator
+    //  * @dev Important! Add a modifier to only allow this function to be called by the VRFCoordinator
+    //  * @dev This is where you do something with randomness!
+    //  * @dev The VRF Coordinator will only send this function verified responses.
+    //  * @dev The VRF Coordinator will not pass randomness that could not be verified.
+    //  */
+    // function fulfillRandomness(bytes32 requestId, uint256 randomness)
+    //     external
+    //     override
+    //     onlyVRFCoordinator
+    // {
+    //     uint256 d20Result = randomness.mod(20).add(1);
+
+    //     depositContract.distributeInterest(
+    //         interestReceivers,
+    //         percentages,
+    //         msg.sender, // change this to a random voter [chainlink VRF]
+    //         proposalIteration
+    //     );
+    //     d20Results.push(d20Result);
+    // }
+
     /// @dev Anyone can call this every 2 weeks (more specifically every *iteration interval*) to receive a reward, and increment onto the next iteration of voting
     function distributeFunds() external iterationElapsed {
-        interestReceivers[0] = msg.sender; // Set the miners address to receive a small reward
+        uint256 interestEarned = depositContract.interestAvailable();
 
-        // To incetivize voting and joining the DAO, like a simply poolTogether, you could win the DAO's interest...
-        depositContract.distributeInterest(
-            interestReceivers,
-            percentages,
-            msg.sender, // change this to a random voter [chainlink VRF]
-            proposalIteration
-        );
+
+            uint256 numberOfUserVotes
+         = totalUsersVotesInIteration[proposalIteration];
+
+        if (numberOfUserVotes > 0) {
+            totalIterationVotePayout[proposalIteration] = interestEarned;
+        }
 
         proposalDeadline = now.add(votingInterval);
         proposalIteration = proposalIteration.add(1);

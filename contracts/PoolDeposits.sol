@@ -42,7 +42,7 @@ contract PoolDeposits {
     );
     event DepositWithdrawn(address indexed user);
     event ProposalWithdrawn(address indexed benefactor);
-    event InterestSent(address indexed user, uint256 amount, uint256 iteration);
+    event InterestSent(address indexed user, uint256 amount);
 
     ///////// Emergency Events ///////////
     event EmergencyStateReached(
@@ -187,8 +187,16 @@ contract PoolDeposits {
     }
 
     // Will error if not enough credit from user
-    function usersVotingCredit(address user) external view returns (uint256) {
-        return depositedDai[user].sub(daoMembershipMinimum);
+    function usersVotingCreditAndVoteIncentiveState(address user)
+        external
+        view
+        returns (uint256 totalVoiceCredits, uint256 voteIncentiveStake)
+    {
+        return (
+            depositedDai[user].sub(daoMembershipMinimum),
+            // We take 20% = (100% - 80%) of the minimum required to vote to make the system more fair.
+            depositedDai[user].sub(daoMembershipMinimum.mul(80).div(100)) // this is configurable
+        );
     }
 
     /// @dev Internal function completing the actual deposit to Aave and crediting users account
@@ -268,37 +276,24 @@ contract PoolDeposits {
         emit ProposalWithdrawn(msg.sender);
     }
 
-    /// @dev Splits the accrued interest between winners.
-    /// @param receivers An array of the addresses to split between
-    /// @param percentages the respective percentage to split
-    function distributeInterest(
-        address[] calldata receivers,
-        uint256[] calldata percentages,
-        address winner,
-        uint256 iteration
-    )
-        external
-        validInterestSplitInput(receivers, percentages)
-        noLossDaoContractOnly
-    {
-        uint256 amountToRedeem = adaiContract.balanceOf(address(this)).sub(
+    function interestAvailable() public view returns (uint256 amountToRedeem) {
+        amountToRedeem = adaiContract.balanceOf(address(this)).sub(
             totalDepositedDai
         );
-        adaiContract.redeem(amountToRedeem);
+    }
 
-        uint256 percentageWinner = 1000;
-        for (uint256 i = 0; i < receivers.length; i++) {
-            percentageWinner = percentageWinner.sub(percentages[i]); //SafeMath prevents this going below 0
-            uint256 amountToSend = amountToRedeem.mul(percentages[i]).div(1000);
-            daiContract.transfer(receivers[i], amountToSend);
-            emit InterestSent(receivers[i], amountToSend, iteration);
-        }
-
-        uint256 amountToSendToWinner = amountToRedeem.mul(percentageWinner).div(
-            1000
+    function payoutVotingIncentive(address voter, uint256 payoutAmount)
+        external
+        noLossDaoContractOnly
+    {
+        require(
+            interestAvailable() >= payoutAmount,
+            "Interest isn't available"
         );
-        daiContract.transfer(winner, amountToSendToWinner);
-        emit InterestSent(winner, amountToSendToWinner, iteration);
+        adaiContract.redeem(payoutAmount);
+
+        daiContract.transfer(voter, payoutAmount);
+        emit InterestSent(voter, payoutAmount);
     }
 
     //////////////////////////////////////////////////
