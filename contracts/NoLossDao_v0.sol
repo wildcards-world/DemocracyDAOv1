@@ -8,7 +8,6 @@ import "@nomiclabs/buidler/console.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 
-
 /** @title No Loss Dao Contract. */
 contract NoLossDao_v0 is Initializable {
     using SafeMath for uint256;
@@ -32,15 +31,17 @@ contract NoLossDao_v0 is Initializable {
     //////// User specific //////////
     mapping(address => uint256) public iterationJoined; // Which iteration did user join DAO
     mapping(uint256 => mapping(address => bool)) public userVotedThisIteration; // iteration -> user -> has voted?
-    mapping(uint256 => mapping(address => mapping(uint256 => bool))) public hasUserVotedForProposalIteration; /// iteration -> userAddress -> proposalId -> bool
-    mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public votesPerProposalForUser; // iteration -> user -> chosen project -> votes
+    mapping(uint256 => mapping(address => mapping(uint256 => bool)))
+        public hasUserVotedForProposalIteration; /// iteration -> userAddress -> proposalId -> bool
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
+        public votesPerProposalForUser; // iteration -> user -> chosen project -> votes
     mapping(uint256 => mapping(address => uint256)) public usersVoteCredit; // iteration -> address -> credit
 
     //////// DAO / VOTE specific //////////
     mapping(uint256 => mapping(uint256 => uint256)) public proposalVotes; /// iteration -> proposalId -> num votes
     mapping(uint256 => uint256) public topProject;
     mapping(address => address) public voteDelegations; // For vote proxy
-    mapping(uint256 => uint256) public totalUsersVotesInIteration;
+    mapping(uint256 => uint256) public totalStakedVoteIncentiveInIteration;
     mapping(uint256 => uint256) public totalIterationVotePayout;
     mapping(address => bool) public usersWhiteListedToVote;
 
@@ -375,8 +376,8 @@ contract NoLossDao_v0 is Initializable {
 
             userVotedThisIteration[proposalIteration][givenAddress] = true;
             // NOTE: no need for safemath here.
-            totalUsersVotesInIteration[proposalIteration] =
-                totalUsersVotesInIteration[proposalIteration] +
+            totalStakedVoteIncentiveInIteration[proposalIteration] =
+                totalStakedVoteIncentiveInIteration[proposalIteration] +
                 usersVoteIncentiveStake;
 
             // add voice credit amount here for user.
@@ -390,7 +391,9 @@ contract NoLossDao_v0 is Initializable {
                     uint256 amountPayedAsParticipationIncentive
                  = totalIterationVotePayout[proposalIteration - 1]
                     .mul(usersVoteIncentiveStake)
-                    .div(totalUsersVotesInIteration[proposalIteration - 1]);
+                    .div(
+                    totalStakedVoteIncentiveInIteration[proposalIteration - 1]
+                );
                 depositContract.payoutVotingIncentive(
                     givenAddress,
                     amountPayedAsParticipationIncentive
@@ -560,7 +563,7 @@ contract NoLossDao_v0 is Initializable {
 
 
             uint256 numberOfUserVotes
-         = totalUsersVotesInIteration[proposalIteration];
+         = totalStakedVoteIncentiveInIteration[proposalIteration];
 
         if (numberOfUserVotes > 0) {
             totalIterationVotePayout[proposalIteration] = interestEarned;

@@ -1233,7 +1233,7 @@ contract NoLossDao_v0 is Initializable {
     mapping(uint256 =&gt; mapping(uint256 =&gt; uint256)) public proposalVotes; /// iteration -&gt; proposalId -&gt; num votes
     mapping(uint256 =&gt; uint256) public topProject;
     mapping(address =&gt; address) public voteDelegations; // For vote proxy
-    mapping(uint256 =&gt; uint256) public totalUsersVotesInIteration;
+    mapping(uint256 =&gt; uint256) public totalStakedVoteIncentiveInIteration;
     mapping(uint256 =&gt; uint256) public totalIterationVotePayout;
     mapping(address =&gt; bool) public usersWhiteListedToVote;
 &nbsp;
@@ -1568,8 +1568,8 @@ contract NoLossDao_v0 is Initializable {
 &nbsp;
             userVotedThisIteration[proposalIteration][givenAddress] = true;
             // NOTE: no need for safemath here.
-            totalUsersVotesInIteration[proposalIteration] =
-                totalUsersVotesInIteration[proposalIteration] +
+            totalStakedVoteIncentiveInIteration[proposalIteration] =
+                totalStakedVoteIncentiveInIteration[proposalIteration] +
                 usersVoteIncentiveStake;
 &nbsp;
             // add voice credit amount here for user.
@@ -1583,7 +1583,7 @@ contract NoLossDao_v0 is Initializable {
                     uint256 amountPayedAsParticipationIncentive
                  = totalIterationVotePayout[proposalIteration - 1]
                     .mul(usersVoteIncentiveStake)
-                    .div(totalUsersVotesInIteration[proposalIteration - 1]);
+                    .div(totalStakedVoteIncentiveInIteration[proposalIteration - 1]);
                 depositContract.payoutVotingIncentive(
                     givenAddress,
                     amountPayedAsParticipationIncentive
@@ -1753,7 +1753,7 @@ contract NoLossDao_v0 is Initializable {
 &nbsp;
 &nbsp;
             uint256 numberOfUserVotes
-         = totalUsersVotesInIteration[proposalIteration];
+         = totalStakedVoteIncentiveInIteration[proposalIteration];
 &nbsp;
         if (numberOfUserVotes &gt; 0) {
             totalIterationVotePayout[proposalIteration] = interestEarned;
