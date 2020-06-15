@@ -13,6 +13,7 @@ const daiAddress = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD';
 //const aavePoolCoreAddress = '0x95D1189Ed88B380E319dF73fF00E479fcc4CFa45';
 const adaiAddress = '0x58AD4cB396411B691A9AAb6F74545b2C5217FE6a';
 const applicationAmount = '50000000000000000000';
+const daoMembershipMinimum = '50000000000000000000';
 
 async function deploy(options, accounts, deployer) {
   add({
@@ -37,6 +38,7 @@ async function deploy(options, accounts, deployer) {
     //aavePoolCoreAddress,
     noLossDao.address,
     applicationAmount,
+    daoMembershipMinimum,
     { from: accounts[0] }
   );
 
